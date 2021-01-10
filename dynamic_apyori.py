@@ -194,9 +194,10 @@ def gen_support_records(transaction_manager, min_support, **kwargs):
     # print(candidates[0])
     
 
-    Done = 0
+    Done = 0 # 表示>min_support
     Work = 1
     terminate = 2
+    Pass = 3
 
     # master
     if(rank == 0):
@@ -215,13 +216,11 @@ def gen_support_records(transaction_manager, min_support, **kwargs):
                 candidate_set = comm.recv(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=status)
                 # print("master recv", candidate_set)
                 task_num -= 1
+                # 大於min_support才放到res當中
                 if status.Get_tag() == Done:
-                    # 大於min_support才放到res當中
-                    if(candidate_set.support < min_support):
-                        pass
-                    else:
-                        relations.add(candidate_set[0])
-                        records.append(candidate_set)
+                    relations.add(candidate_set[0])
+                    records.append(candidate_set)
+
                 if(len(candidates) != 0):
                     task_num += 1
                     comm.send(candidates.pop(), dest=status.Get_source(),tag=Work)
@@ -246,36 +245,12 @@ def gen_support_records(transaction_manager, min_support, **kwargs):
             if status.Get_tag() == Work:
                 support = transaction_manager.calc_support(relation_candidate)
                 candidate_set = frozenset(relation_candidate)
-                comm.send(SupportRecord(candidate_set, support), dest=0, tag=Done)
+                if(support < min_support):
+                    comm.send(0, dest=0, tag=Pass)
+                else:
+                    comm.send(SupportRecord(candidate_set, support), dest=0, tag=Done)
+
             else: exit(0)
-
-
-    # while candidates:
-    #     relations = set()
-    #     sublen = (len(candidates) + size - 1) // size
-    #     sub_candidates = candidates[rank*sublen: (rank+1)*(sublen)]
-    #     for relation_candidate in sub_candidates:
-    #         support = transaction_manager.calc_support(relation_candidate)
-    #         if support < min_support:
-    #             continue
-    #         candidate_set = frozenset(relation_candidate)
-    #         relations.add(candidate_set)
-    #         records.append(SupportRecord(candidate_set, support))
-    #     if(length == 2):
-    #         print(relations)
-    #     length += 1
-    #     if max_length and length > max_length:
-    #         break
-    #     relation_list = comm.allgather(relations)
-    #     relations = set()
-    #     for r in relation_list:
-    #         relations = relations.union(r)
-    #     candidates = _create_next_candidates(relations, length)
-    # record_list = comm.allgather(records)
-    # records = sum(record_list, [])
-    # if(rank ==0):
-    #     print(type(records))
-    # return records
 
 
 def gen_ordered_statistics(transaction_manager, record):

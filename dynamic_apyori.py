@@ -215,15 +215,14 @@ def gen_support_records(transaction_manager, min_support, **kwargs):
             while(1):
                 candidate_set = comm.recv(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=status)
                 # print("master recv", candidate_set)
+                if(len(candidates) != 0):
+                    task_num += 1
+                    comm.send(candidates.pop(), dest=status.Get_source(),tag=Work)
                 task_num -= 1
                 # 大於min_support才放到res當中
                 if status.Get_tag() == Done:
                     relations.add(candidate_set[0])
                     records.append(candidate_set)
-
-                if(len(candidates) != 0):
-                    task_num += 1
-                    comm.send(candidates.pop(), dest=status.Get_source(),tag=Work)
                 if(len(candidates) == 0 and task_num==0): break
             # print("relations", relations)
             length += 1
